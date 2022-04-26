@@ -203,17 +203,34 @@
       }
     </script>
   </head>
-  <body style="margin: 0; display: flex">
-    <canvas id="Canvas"></canvas>
-    <div style="display: flex; flex-direction: column">
-      <script type="text/javascript">
-        for (var i = 0; i <= dim; i++) {
-          document.write(
-            `<button onclick="onClick(${i})" style="margin-bottom: 5px;">move P${i}</button>`
-          );
-        }
-      </script>
-      <p>You can now move P<span id="target"></span>.</p>
+  <body style="margin: 0">
+    <div style="display: flex">
+      <canvas id="Canvas"></canvas>
+      <div style="display: flex; flex-direction: column">
+        <script type="text/javascript">
+          for (var i = 0; i <= dim; i++) {
+            document.write(
+              `<button onclick="onClick(${i})" style="margin-bottom: 5px;">move P${i}</button>`
+            );
+          }
+        </script>
+        <p>You can now move P<span id="target"></span>.</p>
+      </div>
+    </div>
+    <div class="thoughts">
+      <h3>usage</h3>
+      <p>一般のn次元ベジェ曲線を描画するサイトです。</p>
+      <p>
+        座標平面が描画されている部分をクリックすると、クリックした場所に制御点を移動させることができます。また、クリックにより移動する点は、平面の右側にあるボタンを押すことで変更することができます。
+      </p>
+      <p>
+        URLクエリとして ?dim=30
+        のようにすることでベジェ曲線の次元を変更することができます。
+      </p>
+      <h3>簡単な感想</h3>
+      <p>
+        n次元のベジェ曲線を描画するツールを作った。パワーポイントの曲線など、なめらかで直感的な曲線はどうやって実装されているのかとよく疑問に思っていたが、わりと簡単な理論が元になっていることが知れてよかった。WebGL(Three.js)の技術には以前から興味を持っていたので、この機会に基礎から勉強してみようと思い、Three.js以外はつかわずに一からツールを作ってみた。もっと効率よく動かそうと突き詰めたら色々なやり方がありそうではあるが、とりあえずきちんと動くものが作れてよかった。楽しかった。
+      </p>
     </div>
   </body>
 </html>
