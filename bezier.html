@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="https://unpkg.com/three@0.137.4/build/three.min.js"></script>
+    <script src="https://unpkg.com/@seregpie/three.text-texture"></script>
+    <script src="https://unpkg.com/@seregpie/three.text-sprite"></script>
+    <script>
+      // ページの読み込みを待機
+      window.addEventListener("DOMContentLoaded", main);
+
+      // URLクエリから曲線の次元を決める
+      let dim = 2; // ベジェ曲線の次元、デフォルトは2
+      const query = window.location.search;
+      if (query.slice(0, 5) === "?dim=") {
+        // クエリでdimが指定されている
+        dim = Number(query.slice(5));
+      }
+
+      // クリックで動かせる点を定める
+      let targetPoint = 0; // 0 ~ dim
+
+      function factorialize(num) {
+        if (num < 0) return -1;
+        else if (num == 0) return 1;
+        else {
+          return num * factorialize(num - 1);
+        }
+      }
+      function combination(n, r) {
+        return factorialize(n) / (factorialize(r) * factorialize(n - r));
+      }
+      // バーンスタインの基底関数
+      function bernstein(n, i, t) {
+        return combination(n, i) * Math.pow(t, i) * Math.pow(1 - t, n - i);
+      }
+
+      // 点を描画する
+      function makeDot(scene, i, vector2, color = 0x000000) {
+        const geometry = new THREE.CircleGeometry(0.2, 20);
+        const material = new THREE.MeshBasicMaterial({ color });
+        const circle = new THREE.Mesh(geometry, material);
+        circle.position.set(vector2.x, vector2.y, 0);
+        scene.add(circle);
+
+        let sprite = new THREE.TextSprite({
+          text: `P${i}`,
+          fontFamily: "Arial, Helvetica, sans-serif",
+          fontSize: 0.6,
+          color: "#000000",
+        });
+        sprite.position.set(vector2.x + 0.6, vector2.y, 0);
+        scene.add(sprite);
+
+        return { circle, sprite };
+      }
+
+      function updateDot(PMeshList, vec) {
+        PMeshList[targetPoint].circle.position.x = vec.x;
+        PMeshList[targetPoint].circle.position.y = vec.y;
+
+        PMeshList[targetPoint].sprite.position.x = vec.x + 0.6;
+        PMeshList[targetPoint].sprite.position.y = vec.y;
+      }
+
+      function getBezierGeometry(PList) {
+        const bezierPoints = [];
+        let t = 0;
+        while (t <= 1) {
+          let x = 0,
+            y = 0;
+          for (let i = 0; i <= dim; i++) {
+            const bernsteinResult = bernstein(dim, i, t);
+            x += bernsteinResult * PList[i].x;
+            y += bernsteinResult * PList[i].y;
+          }
+          bezierPoints.push(new THREE.Vector3(x, y, 0));
+          t += 0.001;
+        }
+        return new THREE.BufferGeometry().setFromPoints(bezierPoints);
+      }
+
+      // ベジェ曲線を描画する
+      function makeBezier(scene, PList) {
+        const bezierMaterial = new THREE.LineBasicMaterial({
+          color: 0x0000ff,
+        });
+        const line = new THREE.Line(getBezierGeometry(PList), bezierMaterial);
+        scene.add(line);
+
+        return line;
+      }
+
+      function main() {
+        // canvasのサイズを指定
+        const WIDTH = 960;
+        const HEIGHT = 960;
+
+        const LEFT = -15;
+        const RIGHT = 15;
+        const TOP = 15;
+        const BOTTOM = -15;
+
+        // rendererを作成
+        const renderer = new THREE.WebGLRenderer({
+          canvas: document.querySelector("#Canvas"),
+        });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(WIDTH, HEIGHT);
+
+        // シーンを作成
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+
+        // カメラを作成
+        const camera = new THREE.OrthographicCamera(
+          LEFT,
+          RIGHT,
+          TOP,
+          BOTTOM,
+          1,
+          1000
+        );
+        camera.position.set(0, 0, 30);
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
+        scene.add(camera);
+
+        // 座標軸の作成
+        scene.add(
+          new THREE.ArrowHelper(
+            new THREE.Vector3(1, 0, 0), // direction
+            new THREE.Vector3(LEFT, 0, 0), // origin
+            RIGHT - LEFT, // length
+            0x000000, // color
+            0.5, // headLength
+            0.5 // headWidth
+          )
+        );
+        scene.add(
+          new THREE.ArrowHelper(
+            new THREE.Vector3(0, 1, 0), // direction
+            new THREE.Vector3(0, BOTTOM, 0), // origin
+            TOP - BOTTOM, // length
+            0x000000, // color
+            0.5, // headLength
+            0.5 // headWidth
+          )
+        );
+
+        // 制御点を作成
+        let P_0 = new THREE.Vector2(-1, -1);
+        let P_1 = new THREE.Vector2(0, 2);
+        let P_2 = new THREE.Vector2(1.5, 1);
+
+        // 制御点の描画
+        const PMeshList = [];
+        for (let i = 0; i <= dim; i++) {
+          PMeshList.push(
+            makeDot(
+              scene,
+              i,
+              new THREE.Vector2(-(dim / 2) + i, -1 + 2 * (i % 2))
+            )
+          );
+        }
+
+        // ベジェ曲線の描画
+        let line = makeBezier(
+          scene,
+          PMeshList.map((PMesh) => PMesh.circle.position)
+        );
+
+        // ファーストレンダリング
+        renderer.render(scene, camera);
+        document.getElementById("target").textContent = targetPoint;
+
+        // 点の更新時の曲線の更新処理をリッスンする
+        document.getElementById("Canvas").onclick = (event) => {
+          // クリックされた位置を算出
+          let vec = new THREE.Vector3(
+            (event.clientX / WIDTH) * 2 - 1,
+            -(event.clientY / HEIGHT) * 2 + 1,
+            0
+          ).unproject(camera);
+
+          // 点の描画を更新
+          updateDot(PMeshList, vec);
+
+          // 以前のベジェ曲線を更新
+          line.geometry.dispose();
+          line.geometry = getBezierGeometry(
+            PMeshList.map((PMesh) => PMesh.circle.position)
+          );
+
+          // レンダリング
+          renderer.render(scene, camera);
+        };
+      }
+
+      function onClick(n) {
+        targetPoint = n;
+        document.getElementById("target").textContent = targetPoint;
+      }
+    </script>
+  </head>
+  <body style="margin: 0; display: flex">
+    <canvas id="Canvas"></canvas>
+    <div style="display: flex; flex-direction: column">
+      <script type="text/javascript">
+        for (var i = 0; i <= dim; i++) {
+          document.write(
+            `<button onclick="onClick(${i})" style="margin-bottom: 5px;">move P${i}</button>`
+          );
+        }
+      </script>
+      <p>You can now move P<span id="target"></span>.</p>
+    </div>
+  </body>
+</html>
